@@ -1,6 +1,6 @@
-# cmake-project-template
+![Windows](https://github.com/Husenap/dubu-texture-swizzler/workflows/Windows/badge.svg)
+![Ubuntu](https://github.com/Husenap/dubu-texture-swizzler/workflows/Ubuntu/badge.svg)
 
-Uses CMake for generating a basic project template.
+# dubu-texture-swizzler
 
-![Windows](https://github.com/Husenap/cmake-project-template/workflows/Windows/badge.svg)
-![Ubuntu](https://github.com/Husenap/cmake-project-template/workflows/Ubuntu/badge.svg)
+Utility to swizzler channels in texture files.
