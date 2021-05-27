@@ -7,15 +7,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Generate
-      run: cmake . -B.build -DCMAKE_BUILD_TYPE=Debug
-      
-    - name: Build
-      run: cmake --build .build/
+      - name: Generate
+        run: cmake . -B.build -DCMAKE_BUILD_TYPE=Debug
 
-    - name: Test
-      run: |
-        cd .build/
-        ctest .
+      - name: Build
+        run: cmake --build .build/
