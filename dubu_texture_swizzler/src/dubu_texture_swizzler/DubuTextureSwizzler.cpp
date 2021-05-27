@@ -5,18 +5,65 @@
 #include <imgui/imgui.h>
 #include <imgui/misc/cpp/imgui_stdlib.h>
 
+static constexpr const char* POPUP_PROGRESS = "Sizzling and Swizzling...";
+
+static inline void rtrim(std::string& s) {
+	s.erase(std::find_if(s.rbegin(),
+	                     s.rend(),
+	                     [](unsigned char ch) { return !std::isspace(ch); })
+	            .base(),
+	        s.end());
+}
+static inline void trim(std::string& s) {
+	rtrim(s);
+}
+
 DubuTextureSwizzler::DubuTextureSwizzler()
-    : dubu::opengl_app::AppBase({.width        = 600,
-                                 .height       = 200,
+    : dubu::opengl_app::AppBase({.width        = 500,
+                                 .height       = 150,
                                  .appName      = "Dubu Texture Swizzler",
                                  .swapInterval = 1}) {}
 
 void DubuTextureSwizzler::Init() {}
 
 void DubuTextureSwizzler::Update() {
+	if (mSwizzling) {
+		if (mSwizzling->index >= mTextureFiles.size()) {
+			mSwizzling = std::nullopt;
+		} else {
+			SwizzleTexture(mTextureFiles[mSwizzling->index]);
+			++mSwizzling->index;
+		}
+	}
+
 	DrawDockSpace();
 
-	if (ImGui::Begin("Texture Swizzler")) {
+	if (ImGui::Begin("Texture Swizzler",
+	                 nullptr,
+	                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+	                     ImGuiWindowFlags_NoMove)) {
+		if (mSwizzling) {
+			if (!ImGui::IsPopupOpen(POPUP_PROGRESS)) {
+				ImGui::OpenPopup(POPUP_PROGRESS);
+			}
+			if (ImGui::BeginPopupModal(
+			        POPUP_PROGRESS, NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+				int        current     = mSwizzling->index;
+				int        numTextures = static_cast<int>(mTextureFiles.size());
+				const auto text =
+				    fmt::format("Texture {}/{}", current, numTextures);
+				float progress = current / static_cast<float>(numTextures);
+
+				ImGui::SetNextItemWidth(200.f);
+				ImGui::ProgressBar(progress, ImVec2(0.f, 0.f), text.c_str());
+
+				if (ImGui::Button("Cancel", ImVec2(200.f, 0))) {
+					mSwizzling = std::nullopt;
+				}
+				ImGui::EndPopup();
+			}
+		}
+
 		if (ImGui::InputText("Directory Path", &mDirectoryString)) {
 			OnDirectoryPathUpdated();
 		}
@@ -45,7 +92,11 @@ void DubuTextureSwizzler::Update() {
 void DubuTextureSwizzler::OnDirectoryPathUpdated() {
 	mTextureFiles.clear();
 
-	if (!std::filesystem::is_directory(mDirectoryString)) {
+	trim(mDirectoryString);
+
+	auto path = std::filesystem::path(mDirectoryString);
+
+	if (!std::filesystem::is_directory(path)) {
 		return;
 	}
 
@@ -58,7 +109,7 @@ void DubuTextureSwizzler::OnDirectoryPathUpdated() {
 	    ".BMP",
 	};
 
-	for (auto& file : std::filesystem::directory_iterator(mDirectoryString)) {
+	for (auto& file : std::filesystem::directory_iterator(path)) {
 		auto& p = file.path();
 		if (p.has_extension() &&
 		    std::find(ValidExtensions.begin(),
@@ -70,34 +121,40 @@ void DubuTextureSwizzler::OnDirectoryPathUpdated() {
 }
 
 void DubuTextureSwizzler::OnSwizzle() {
-	int channel1 = ChannelCharToIndex(mSwapCombinations[mCurrentSwap][0]);
-	int channel2 = ChannelCharToIndex(mSwapCombinations[mCurrentSwap][1]);
+	mSwizzling = Swizzling{
+	    .index    = 0,
+	    .channel1 = ChannelCharToIndex(mSwapCombinations[mCurrentSwap][0]),
+	    .channel2 = ChannelCharToIndex(mSwapCombinations[mCurrentSwap][1]),
+	};
+}
 
-	for (auto& p : mTextureFiles) {
-		auto filepath = p.generic_string();
-		int  w, h, c;
-		auto pixels = stbi_load(filepath.c_str(), &w, &h, &c, 0);
-		if (!pixels) {
-			continue;
-		}
-
-		if (c >= std::max(channel1, channel2) + 1) {
-			for (int i = 0; i < w * h; ++i) {
-				auto pixel = pixels + i * c;
-				std::swap(*(pixel + channel1), *(pixel + channel2));
-			}
-		}
-
-		if (p.extension() == ".tga" || p.extension() == ".TGA") {
-			stbi_write_tga(filepath.c_str(), w, h, c, pixels);
-		} else if (p.extension() == ".bmp" || p.extension() == ".BMP") {
-			stbi_write_bmp(filepath.c_str(), w, h, c, pixels);
-		} else if (p.extension() == ".png" || p.extension() == ".PNG") {
-			stbi_write_png(filepath.c_str(), w, h, c, pixels, w * c);
-		}
-
-		stbi_image_free(pixels);
+void DubuTextureSwizzler::SwizzleTexture(std::filesystem::path& p) {
+	auto filepath = p.generic_string();
+	int  w, h, c;
+	auto pixels = stbi_load(filepath.c_str(), &w, &h, &c, 0);
+	if (!pixels) {
+		return;
 	}
+
+	int channel1 = mSwizzling->channel1;
+	int channel2 = mSwizzling->channel2;
+
+	if (c >= std::max(channel1, channel2) + 1) {
+		for (int i = 0; i < w * h; ++i) {
+			auto pixel = pixels + i * c;
+			std::swap(*(pixel + channel1), *(pixel + channel2));
+		}
+	}
+
+	if (p.extension() == ".tga" || p.extension() == ".TGA") {
+		stbi_write_tga(filepath.c_str(), w, h, c, pixels);
+	} else if (p.extension() == ".bmp" || p.extension() == ".BMP") {
+		stbi_write_bmp(filepath.c_str(), w, h, c, pixels);
+	} else if (p.extension() == ".png" || p.extension() == ".PNG") {
+		stbi_write_png(filepath.c_str(), w, h, c, pixels, w * c);
+	}
+
+	stbi_image_free(pixels);
 }
 
 int DubuTextureSwizzler::ChannelCharToIndex(char c) {
