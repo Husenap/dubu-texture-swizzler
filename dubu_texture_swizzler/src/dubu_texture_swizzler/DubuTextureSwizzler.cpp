@@ -144,14 +144,14 @@ void DubuTextureSwizzler::SwizzleTexture(std::filesystem::path& p) {
 			auto pixel = pixels + i * c;
 			std::swap(*(pixel + channel1), *(pixel + channel2));
 		}
-	}
 
-	if (p.extension() == ".tga" || p.extension() == ".TGA") {
-		stbi_write_tga(filepath.c_str(), w, h, c, pixels);
-	} else if (p.extension() == ".bmp" || p.extension() == ".BMP") {
-		stbi_write_bmp(filepath.c_str(), w, h, c, pixels);
-	} else if (p.extension() == ".png" || p.extension() == ".PNG") {
-		stbi_write_png(filepath.c_str(), w, h, c, pixels, w * c);
+		if (p.extension() == ".tga" || p.extension() == ".TGA") {
+			stbi_write_tga(filepath.c_str(), w, h, c, pixels);
+		} else if (p.extension() == ".bmp" || p.extension() == ".BMP") {
+			stbi_write_bmp(filepath.c_str(), w, h, c, pixels);
+		} else if (p.extension() == ".png" || p.extension() == ".PNG") {
+			stbi_write_png(filepath.c_str(), w, h, c, pixels, w * c);
+		}
 	}
 
 	stbi_image_free(pixels);
